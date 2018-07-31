@@ -1,0 +1,15 @@
+#!/bin/bash
+servers=`cat creds`;
+
+for server in $servers; do
+    ip=`echo $server | cut -f1 -d '|'`
+    pass=`echo $server | cut -f2 -d '|'`
+
+    #backup users:
+    sshpass -p $pass ssh root@$ip '
+        users=`ls /home | grep -Ev "admin|backup"`;
+        for user in $users; do
+	    sed -i s/BACKUPS='2'/BACKUPS='0'/ /usr/local/vesta/data/users/$user/user.conf
+        done
+    '
+done
