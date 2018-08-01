@@ -1,15 +1,31 @@
 #!/bin/bash
-servers=`cat creds`;
+#####VARIALES#####
+path=$1
+servers=`cat creds`
+vbin='/usr/local/vesta/bin'
+onExit() {
+    sshpass -p $pass ssh root@$ip 'sed -i s/BACKUPS='"\'.\'"'/BACKUPS='"\'0\'"'/ /usr/local/vesta/data/users/'$user'/user.conf'
+}
 
+#####ACTIONS#####
 for server in $servers; do
     ip=`echo $server | cut -f1 -d '|'`
     pass=`echo $server | cut -f2 -d '|'`
 
     #backup users:
-    sshpass -p $pass ssh root@$ip '
-        users=`ls /home | grep -Ev "admin|backup"`;
-        for user in $users; do
-	    sed -i s/BACKUPS='2'/BACKUPS='0'/ /usr/local/vesta/data/users/$user/user.conf
-        done
-    '
+    users=`sshpass -p $pass ssh root@$ip 'ls /home | grep -Ev "admin|backup"'`
+    for user in $users; do
+	echo '>'$user': BACKINGUP'
+        sshpass -p $pass ssh root@$ip '
+	    rm -rf /home/backup/*
+	    sed -i s/BACKUPS='"\'.\'"'/BACKUPS='"\'1\'"'/ /usr/local/vesta/data/users/'$user'/user.conf
+	    '$vbin'/v-backup-user '$user'
+	    sed -i s/BACKUPS='"\'.\'"'/BACKUPS='"\'0\'"'/ /usr/local/vesta/data/users/'$user'/user.conf'
+	echo '>'$user': DOWNLOADING'
+	sshpass -p $pass scp root@$ip:/home/backup/$user* $path
+	echo '>'$user': COMPLETE'
+    done
 done
+
+trap onExit SIGINT SIGTERM
+
